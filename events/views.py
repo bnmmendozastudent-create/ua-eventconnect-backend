@@ -1,6 +1,8 @@
 from django.shortcuts import render
 
 from rest_framework import generics, permissions, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import User, Event, Registration
@@ -102,3 +104,85 @@ class AttendanceReportView(APIView):
             'slots_remaining': event.slots_remaining,
             'attendees': serializer.data,
         })
+
+
+# ─────────────────────────────────────────────
+# LAB ACTIVITY 07 - SIMPLE VIEWS FOR POSTMAN TESTING
+# No authentication required
+# ─────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_events(request):
+    # DFD: Fetch Events
+    events = Event.objects.filter(status='upcoming')
+    data = [
+        {
+            "id": e.id,
+            "title": e.title,
+            "description": e.description,
+            "date": str(e.date),
+            "time": str(e.time),
+            "location": e.location,
+            "capacity": e.capacity
+        }
+        for e in events
+    ]
+    return Response({"status": "success", "data": data})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_event(request):
+    user_id = request.data.get('user_id')
+    event_id = request.data.get('event_id')
+
+    # DFD: Validate
+    if not user_id or not event_id:
+        return Response({"status": "error", "message": "Missing data"})
+
+    # DFD: Process
+    try:
+        user = User.objects.get(id=user_id)
+        event = Event.objects.get(id=event_id)
+    except:
+        return Response({"status": "error", "message": "Invalid user/event"})
+
+    # DFD: Save
+    Registration.objects.create(user=user, event=event)
+
+    return Response({
+        "status": "success",
+        "message": "Registered successfully"
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_event(request):
+    title = request.data.get('title')
+    description = request.data.get('description')
+    location = request.data.get('location')
+    date = request.data.get('date')
+    time = request.data.get('time')
+    capacity = request.data.get('capacity')
+
+    # DFD: Validate
+    if not title:
+        return Response({"status": "error", "message": "Title is required"})
+
+    # DFD: Save
+    event = Event.objects.create(
+        title=title,
+        description=description,
+        location=location,
+        date=date,
+        time=time,
+        capacity=capacity
+    )
+
+    return Response({
+        "status": "success",
+        "message": "Event created successfully",
+        "event_id": event.id
+    })
